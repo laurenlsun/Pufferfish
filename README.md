@@ -1,3 +1,5 @@
+Cloned from Hongyi Wang's Pufferfish [repo](https://github.com/hwang595/Pufferfish).
+
 ## Pufferfish
 The implementation for MLSys 2021 paper: "Pufferfish: Communication-efficient Models At No Extra Cost"
 
