@@ -606,10 +606,10 @@ class ResNetLR(nn.Module):
 
 class WideResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10, k=2): # k=factor by which to widen
-        super(ResNet, self).__init__()
+        super(WideResNet, self).__init__()
         self.in_planes = 64*k
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(3, 64*k, kernel_size=3, stride=1, padding=1, bias=False)
         #self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(block, 64*k, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, 128*k, num_blocks[1], stride=2)
@@ -637,6 +637,45 @@ class WideResNet(nn.Module):
         out = self.linear(out)
         return out
 
+class HybridWideResNet(nn.Module):
+    def __init__(self, fullrank_block, lowrank_block, num_blocks, num_classes=10, k=2):
+        super(HybridWideResNet, self).__init__()
+        self.in_planes = 64*k
+        self._block_counter = 0
+
+        self.conv1 = nn.Conv2d(3, 64*k, kernel_size=3, stride=1, padding=1, bias=False)
+        #self.bn1 = nn.BatchNorm2d(64)
+        self.layer1 = self._make_layer(fullrank_block, lowrank_block, 64*k, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(fullrank_block, lowrank_block, 128*k, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(fullrank_block, lowrank_block, 256*k, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(fullrank_block, lowrank_block, 512*k, num_blocks[3], stride=2)
+        assert fullrank_block.expansion == lowrank_block.expansion
+        self.linear = nn.Linear(512*fullrank_block.expansion*k, num_classes)
+
+    def _make_layer(self, fullrank_block, lowrank_block, planes, num_blocks, stride):
+        strides = [stride] + [1]*(num_blocks-1)
+        layers = []
+        for stride in strides:
+            if self._block_counter < 1:
+                layers.append(fullrank_block(self.in_planes, planes, stride))
+                self.in_planes = planes * fullrank_block.expansion
+            else:
+                layers.append(lowrank_block(self.in_planes, planes, stride))
+                self.in_planes = planes * lowrank_block.expansion
+            self._block_counter += 1
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        #out = F.relu(self.bn1(self.conv1(x)))
+        out = F.relu(self.conv1(x))
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+        out = F.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        out = self.linear(out)
+        return out
 
 
 def ResNet18():
@@ -644,7 +683,6 @@ def ResNet18():
 
 def BaselineResNet18():
     return BaselineResNet(BasicBlock, [2,2,2,2])
-
 
 def LowrankResNet18():
     return HybridResNet(BasicBlock, LowrankBasicBlock, [2,2,2,2])
@@ -703,5 +741,7 @@ if __name__ == "__main__":
 
 
 def WideResNet18():
-    return WideResNet(BasicBlock, [2,2,2,2], 2)
+    return WideResNet(BasicBlock, [2,2,2,2])
 
+def LowRankWideResNet18():
+    return HybridWideResNet(BasicBlock, LowrankBasicBlock, [2,2,2,2])

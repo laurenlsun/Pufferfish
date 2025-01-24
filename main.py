@@ -282,6 +282,7 @@ def main():
     parser.add_argument('-a', '--arch', default='resnet18')
     parser.add_argument('--mode', type=str, default='vanilla',
                     help='use full rank or low rank models')
+    # wide resnet argument
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--seed', type=int, default=42,
@@ -359,9 +360,19 @@ def main():
     if args.arch == "resnet18":
         if args.mode == "vanilla":
             model = ResNet18().to(device)
+            vanilla_model = ResNet18().to(device)#
         elif args.mode == "lowrank":
             model = LowrankResNet18().to(device)
             vanilla_model = ResNet18().to(device)
+        else:
+            raise NotImplementedError("unsupported mode ...")
+    if args.arch == "wideresnet18":
+        if args.mode == "vanilla":
+            model = WideResNet18().to(device)
+            vanilla_model = ResNet18().to(device)#
+        elif args.mode == "lowrank":
+            model = LowRankWideResNet18().to(device)
+            vanilla_model = WideResNet18().to(device)
         else:
             raise NotImplementedError("unsupported mode ...")
     elif args.arch == "vgg19":
@@ -433,7 +444,7 @@ def main():
 
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=1e-4)
 
-    if args.mode == "lowrank":
+    if args.mode == "lowrank" or args.mode=="vanilla": # added or
         vanilla_optimizer = torch.optim.SGD(vanilla_model.parameters(), args.lr,
                                         momentum=args.momentum, weight_decay=1e-4)
     
