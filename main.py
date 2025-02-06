@@ -370,7 +370,7 @@ def main():
     if args.arch == "wideresnet18":
         if args.mode == "vanilla":
             model = WideResNet18().to(device)
-            vanilla_model = ResNet18().to(device)#
+            vanilla_model = WideResNet18().to(device)#
         elif args.mode == "lowrank":
             model = LowRankWideResNet18().to(device)
             vanilla_model = WideResNet18().to(device)
