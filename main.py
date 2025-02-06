@@ -131,7 +131,7 @@ def decompose_weights(model, low_rank_model, rank_factor, args):
             reload_state_dict[param_name] = reconstructed_aggregator[model_counter]
             model_counter += 1
 
-    elif args.arch == "resnet18":
+    elif args.arch == "resnet18" or args.arch == "wideresnet18":
         for item_index, (param_name, param) in enumerate(model.state_dict().items()):
             if len(param.size()) == 4 and item_index not in range(0, 13) and ".shortcut." not in param_name:
                 # resize --> svd --> two layer
@@ -168,6 +168,7 @@ def decompose_weights(model, low_rank_model, rank_factor, args):
             assert (reconstructed_aggregator[model_counter].size() == param.size())
             reload_state_dict[param_name] = reconstructed_aggregator[model_counter]
             model_counter += 1
+
     else:
         raise NotImplementedError("Unsupported model arch ...")
     
@@ -254,7 +255,7 @@ def validate(test_loader, model, criterion, epoch, args, device):
 
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
-            torch.save(state, './checkpoint/{}_seed{}_best.pth'.format(args.arch, args.seed))
+            torch.save(state, './checkpoint/lowrank{}_seed{}_best.pth'.format(args.arch, args.seed))
             best_acc = acc
 
 
