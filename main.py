@@ -162,9 +162,9 @@ def decompose_weights(model, low_rank_model, rank_factor, args):
         model_counter = 0
         reload_state_dict = {}
         for item_index, (param_name, param) in enumerate(low_rank_model.state_dict().items()):
-            #print("#### {}, {}, recons agg: {}， param: {}".format(item_index, param_name, 
-            #                                                                        reconstructed_aggregator[model_counter].size(),
-            #                                                                       param.size()))
+            print("#### {}, {}, recons agg: {}， param: {}".format(item_index, param_name, 
+                                                                                  reconstructed_aggregator[model_counter].size(),
+                                                                                  param.size()))
             assert (reconstructed_aggregator[model_counter].size() == param.size())
             reload_state_dict[param_name] = reconstructed_aggregator[model_counter]
             model_counter += 1
@@ -252,10 +252,13 @@ def validate(test_loader, model, criterion, epoch, args, device):
                 'acc': acc,
                 'epoch': epoch,
             }
+            print("EPOCH:", epoch)
+            print("MODEL PARAM", param_counter(model))
 
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
-            torch.save(state, './checkpoint/lowrank{}_seed{}_best.pth'.format(args.arch, args.seed))
+            torch.save(state, './checkpoint/TEST.pth') # mm
+            # torch.save(state, './checkpoint/cifar10{}_{}_{}epochs_rf{}.pth'.format(args.arch, args.mode, args.epochs, args.rank_factor))
             best_acc = acc
 
 
