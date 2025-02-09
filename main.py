@@ -257,8 +257,8 @@ def validate(test_loader, model, criterion, epoch, args, device):
 
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
-            torch.save(state, './checkpoint/TEST.pth') # mm
-            # torch.save(state, './checkpoint/cifar10{}_{}_{}epochs_rf{}.pth'.format(args.arch, args.mode, args.epochs, args.rank_factor))
+            # torch.save(state, './checkpoint/TEST.pth') # mm
+            torch.save(state, './checkpoint/{}_{}_{}epochs_rf{}.pth'.format(args.arch, args.mode, args.epochs, args.rank_factor))
             best_acc = acc
 
 

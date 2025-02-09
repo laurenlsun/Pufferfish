@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-CONST_RANK_DENOMINATOR=4
+CONST_RANK_DENOMINATOR=2
 
 
 def conv1x1(in_planes, out_planes, stride=1):

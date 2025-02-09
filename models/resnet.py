@@ -1795,7 +1795,7 @@ class WideResNet(nn.Module):
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None, k=2):
-        super(ResNet, self).__init__()
+        super(WideResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -1896,7 +1896,7 @@ class LowRankWideResNet(nn.Module):
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None, k=2):
-        super(LowRankResNet, self).__init__()
+        super(LowRankWideResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -2328,11 +2328,11 @@ def wide_resnet101_2(pretrained=False, progress=True, **kwargs):
 #---------- WideResNet ------
 
 def wideresnet18(pretrained=False, progress=True, **kwargs):
-    return _wide_resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
+    return _wide_resnet('wideresnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
                    **kwargs)
 
 def lowrank_wideresnet18(pretrained=False, progress=True, **kwargs):
-    return _lowrank_resnet('resnet18', LowRankBasicBlockConv1x1, [2, 2, 2, 2], pretrained, progress,
+    return _lowrank_resnet('wideresnet18', LowRankBasicBlockConv1x1, [2, 2, 2, 2], pretrained, progress,
                    **kwargs)
 
 # ---------
