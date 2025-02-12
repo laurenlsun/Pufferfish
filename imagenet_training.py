@@ -421,33 +421,35 @@ def main_worker(gpu, ngpus_per_node, args):
 
     cudnn.benchmark = True
 
-    # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
+    # ------------ (from orig pufferfish)--------------
+    # traindir = os.path.join(args.data, 'train')
+    # valdir = os.path.join(args.data, 'val')
     
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                                 std=[0.229, 0.224, 0.225])
 
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        transforms.Compose([
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
 
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
+    # train_dataset = datasets.ImageFolder(
+    #     traindir,
+    #     transforms.Compose([
+    #         transforms.RandomResizedCrop(224),
+    #         transforms.RandomHorizontalFlip(),
+    #         transforms.ToTensor(),
+    #         normalize,
+    #     ]))
 
-    # (from orig pufferfish)
+    # if args.distributed:
+    #     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+    # else:
+    train_sampler = None
+
+    
     # train_loader = torch.utils.data.DataLoader(
     #     train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
     #     num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     train_loader = data_loader(args.batch_size)
+    # print("train loader loaded okkk")
 
     # (from orig pufferfish)
     # val_loader = torch.utils.data.DataLoader(
@@ -753,7 +755,7 @@ def validate(val_loader, model, criterion, args):
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     # torch.save(state, filename)
-    torch.save(state, "imagenet_test.pth.tar")
+    torch.save(state, "imagenet_test_3epochs.pth.tar")
     if is_best:
         shutil.copyfile(filename, 'imagenet_test.pth.tar')
 
@@ -836,7 +838,8 @@ def accuracy(output, target, topk=(1,)):
 
         res = []
         for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            # correct_k = correct[:k].view(-1).float().sum(0, keepdim=True) # from orig
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True) # fix bnot contig in memory?
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
