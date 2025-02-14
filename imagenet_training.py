@@ -90,7 +90,7 @@ parser.add_argument('-rf', '--rank-factor', default=4, type=int,
                     metavar='N', help='the rank factor that is going to use in the low rank models')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--model-save-dir', default='/mnt', type=str, metavar='PATH',
+parser.add_argument('--model-save-dir', default='/checkpoint', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -577,7 +577,7 @@ def main_worker(gpu, ngpus_per_node, args):
                             'best_acc1': best_acc1,
                             'optimizer' : optimizer_vanilla.state_dict(),
                         #}, is_best, filename=args.model_save_dir+"/"+"checkpoint-epoch{}.pth.tar".format(epoch+1))
-                        }, is_best, filename=os.path.join(args.model_save_dir, "checkpoint-epoch{}.pth.tar".format(epoch+1)))
+                        }, is_best, filename=os.path.join(args.model_save_dir, "ckpt-{}-epoch{}-mode{}-imgnet.pth.tar".format(args.arch, epoch+1, args.mode)))
                     else:
                         save_checkpoint({
                             'epoch': epoch + 1,
@@ -586,7 +586,7 @@ def main_worker(gpu, ngpus_per_node, args):
                             'best_acc1': best_acc1,
                             'optimizer' : optimizer.state_dict(),
                         #}, is_best, filename=args.model_save_dir+"/"+"checkpoint-epoch{}.pth.tar".format(epoch+1))
-                        }, is_best, filename=os.path.join(args.model_save_dir, "checkpoint-epoch{}.pth.tar".format(epoch+1)))
+                        }, is_best, filename=os.path.join(args.model_save_dir, "ckpt-{}-epoch{}-mode{}-imgnet.pth.tar".format(args.arch, epoch+1, args.mode)))
             else:
                 if (epoch in range(80, 90)):
                     if args.mode == "lowrank":
@@ -597,7 +597,7 @@ def main_worker(gpu, ngpus_per_node, args):
                             'best_acc1': best_acc1,
                             'optimizer' : optimizer.state_dict(),
                         #}, is_best, filename=args.model_save_dir+"/"+"checkpoint-epoch{}.pth.tar".format(epoch+1))
-                        }, is_best, filename=os.path.join(args.model_save_dir, "checkpoint-epoch{}.pth.tar".format(epoch+1)))   
+                        }, is_best, filename=os.path.join(args.model_save_dir, "ckpt-{}-epoch{}-mode{}-imgnet.pth.tar".format(args.arch, epoch+1, args.mode)))   
                     elif args.mode == "vanilla":
                         save_checkpoint({
                             'epoch': epoch + 1,
@@ -606,7 +606,7 @@ def main_worker(gpu, ngpus_per_node, args):
                             'best_acc1': best_acc1,
                             'optimizer' : optimizer_vanilla.state_dict(),
                         #}, is_best, filename=args.model_save_dir+"/"+"checkpoint-epoch{}.pth.tar".format(epoch+1))
-                        }, is_best, filename=os.path.join(args.model_save_dir, "checkpoint-epoch{}.pth.tar".format(epoch+1)))
+                        }, is_best, filename=os.path.join(args.model_save_dir, "ckpt-{}-epoch{}-mode{}-imgnet.pth.tar".format(args.arch, epoch+1, args.mode)))
                     else:
                         raise NotImplementedError("Unsupported program mode ...")                
 
@@ -754,8 +754,8 @@ def validate(val_loader, model, criterion, args):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    # torch.save(state, filename)
-    torch.save(state, "imagenet_test_3epochs.pth.tar")
+    torch.save(state, filename)
+    # torch.save(state, "./checkpoint/imagenet_{}epochs.pth.tar")
     if is_best:
         shutil.copyfile(filename, 'imagenet_test.pth.tar')
 

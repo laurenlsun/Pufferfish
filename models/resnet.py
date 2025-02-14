@@ -18,7 +18,7 @@ __all__ = ['ResNet', 'resnet18', 'baseline_resnet18', 'lowrank_resnet18_conv1x1'
             'lowrank_resnet50', 'lowrank_resnet50_conv1x1', 'lowrank_resresnet50', 'hybrid_resnet50', 'hybrid_resnet50_extra_bns', 'amp_hybrid_resnet50', 'amp_resnet50', 'resnet101', 'hybrid_resnet101',
            'resnet152', 'hybrid_resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
            'wide_resnet50_2', 'lowrank_wide_resnet50_2', 'hybrid_wide_resnet50_2', 'wide_resnet101_2',
-           'wideresnet18']
+           'wideresnet18', 'lowrank_wideresnet18']
 
 
 model_urls = {
@@ -254,7 +254,7 @@ class LowRankBasicBlockConv1x1(nn.Module):
         super(LowRankBasicBlockConv1x1, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
-        if groups != 1 or base_width != 64:
+        if groups != 1: #or base_width != 64:
             raise ValueError('BasicBlock only supports groups=1 and base_width=64')
         if dilation > 1:
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
@@ -1891,12 +1891,12 @@ class WideResNet(nn.Module):
     # Allow for accessing forward method in a inherited class
     forward = _forward
 
-class LowRankWideResNet(nn.Module):
-
-    def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
+class LowRankWideResNetConv1x1(nn.Module):
+    def __init__(self, block, rank_factor, layers, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None, k=2):
-        super(LowRankWideResNet, self).__init__()
+        super(LowRankWideResNetConv1x1, self).__init__()
+        zero_init_residual = True
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -1917,15 +1917,17 @@ class LowRankWideResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64*k, layers[0])
-        self.layer2 = self._make_layer(block, 128*k, layers[1], stride=2,
+
+        self.layer1 = self._make_layer(block, rank_factor*k, 64, layers[0])
+        self.layer2 = self._make_layer(block, rank_factor*k, 128, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256*k, layers[2], stride=2,
+        self.layer3 = self._make_layer(block, rank_factor*k, 256, layers[2], stride=2,
                                        dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, 512*k, layers[3], stride=2,
+        self.layer4 = self._make_layer(block, rank_factor*k, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion *k, num_classes)
+        
+        self.fc = nn.Linear(512 * block.expansion*k, num_classes)
         #self.fc_u = nn.Linear(512 * block.expansion, int(num_classes/CONST_RANK_DENOMINATOR))
         #self.fc_v = nn.Linear(int(num_classes/CONST_RANK_DENOMINATOR), num_classes)
 
@@ -1941,12 +1943,20 @@ class LowRankWideResNet(nn.Module):
         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
         if zero_init_residual:
             for m in self.modules():
-                if isinstance(m, Bottleneck):
+                if isinstance(m, LowRankBottleneckConv1x1):
                     nn.init.constant_(m.bn3.weight, 0)
+                    #nn.init.constant_(m.bn3_v.weight, 0)
                 elif isinstance(m, BasicBlock):
-                    nn.init.constant_(m.bn2.weight, 0)
+                    #nn.init.constant_(m.bn2.weight, 0)
+                    nn.init.constant_(m.bn2_v.weight, 0)
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+        #for m in self.modules():
+        #    if isinstance(m, LowRankBottleneckConv1x1):
+        #        print(m.bn3_v.weight)
+        #        print("##"*15)
+
+
+    def _make_layer(self, block, rank_factor, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
@@ -1954,19 +1964,37 @@ class LowRankWideResNet(nn.Module):
             self.dilation *= stride
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                norm_layer(planes * block.expansion),
-            )
+            ###############################################################################
+            # TODO(hwang): check performance of these changes
+            #if block is LowRankBottleneckConv1x1 or block is LowRankBasicBlockConv1x1:
+            if block is LowRankBottleneckConv1x1:
+                downsample = nn.Sequential(
+                    #conv1x1(self.inplanes, planes * block.expansion, stride),
+                    conv1x1(self.inplanes, int(planes/rank_factor), stride=1),
+                    conv1x1(int(planes/rank_factor), planes * block.expansion, stride),
+                    norm_layer(planes * block.expansion),
+                )
+            else:
+                downsample = nn.Sequential(
+                    conv1x1(self.inplanes, planes * block.expansion, stride),
+                    norm_layer(planes * block.expansion),
+                )
+
+            ####
+            #downsample = nn.Sequential(
+            #    conv1x1(self.inplanes, planes * fr_block.expansion, stride),
+            #    norm_layer(planes * fr_block.expansion),
+            #)
+            ###############################################################################
 
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-                            self.base_width, previous_dilation, norm_layer))
+                            self.base_width, previous_dilation, norm_layer, rank_factor=rank_factor))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
-                                norm_layer=norm_layer))
+                                norm_layer=norm_layer, rank_factor=rank_factor))
 
         return nn.Sequential(*layers)
 
@@ -1977,20 +2005,124 @@ class LowRankWideResNet(nn.Module):
         x = self.maxpool(x)
 
         x = self.layer1(x)
+
         x = self.layer2(x)
+
         x = self.layer3(x)
+
         x = self.layer4(x)
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        
+
         x = self.fc(x)
         #x = self.fc_u(x)
-        #x = self.fc_v(x)
+        #x = self.fc_v(x)        
         return x
 
     # Allow for accessing forward method in a inherited class
     forward = _forward
+
+
+# class LowRankWideResNet(nn.Module):
+#     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
+#                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
+#                  norm_layer=None, k=2):
+#         super(LowRankWideResNet, self).__init__()
+#         if norm_layer is None:
+#             norm_layer = nn.BatchNorm2d
+#         self._norm_layer = norm_layer
+
+#         self.inplanes = 64*k
+#         self.dilation = 1
+#         if replace_stride_with_dilation is None:
+#             # each element in the tuple indicates if we should replace
+#             # the 2x2 stride with a dilated convolution instead
+#             replace_stride_with_dilation = [False, False, False]
+#         if len(replace_stride_with_dilation) != 3:
+#             raise ValueError("replace_stride_with_dilation should be None "
+#                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
+#         self.groups = groups
+#         self.base_width = width_per_group
+#         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+#                                bias=False)
+#         self.bn1 = norm_layer(self.inplanes)
+#         self.relu = nn.ReLU(inplace=True)
+#         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+#         self.layer1 = self._make_layer(block, 64*k, layers[0])
+#         self.layer2 = self._make_layer(block, 128*k, layers[1], stride=2,
+#                                        dilate=replace_stride_with_dilation[0])
+#         self.layer3 = self._make_layer(block, 256*k, layers[2], stride=2,
+#                                        dilate=replace_stride_with_dilation[1])
+#         self.layer4 = self._make_layer(block, 512*k, layers[3], stride=2,
+#                                        dilate=replace_stride_with_dilation[2])
+#         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+#         self.fc = nn.Linear(512 * block.expansion *k, num_classes)
+#         #self.fc_u = nn.Linear(512 * block.expansion, int(num_classes/CONST_RANK_DENOMINATOR))
+#         #self.fc_v = nn.Linear(int(num_classes/CONST_RANK_DENOMINATOR), num_classes)
+
+#         for m in self.modules():
+#             if isinstance(m, nn.Conv2d):
+#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+#             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+#                 nn.init.constant_(m.weight, 1)
+#                 nn.init.constant_(m.bias, 0)
+
+#         # Zero-initialize the last BN in each residual branch,
+#         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
+#         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
+#         if zero_init_residual:
+#             for m in self.modules():
+#                 if isinstance(m, Bottleneck):
+#                     nn.init.constant_(m.bn3.weight, 0)
+#                 elif isinstance(m, BasicBlock):
+#                     nn.init.constant_(m.bn2.weight, 0)
+
+#     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+#         norm_layer = self._norm_layer
+#         downsample = None
+#         previous_dilation = self.dilation
+#         if dilate:
+#             self.dilation *= stride
+#             stride = 1
+#         if stride != 1 or self.inplanes != planes * block.expansion:
+#             downsample = nn.Sequential(
+#                 conv1x1(self.inplanes, planes * block.expansion, stride),
+#                 norm_layer(planes * block.expansion),
+#             )
+
+#         layers = []
+#         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
+#                             self.base_width, previous_dilation, norm_layer))
+#         self.inplanes = planes * block.expansion
+#         for _ in range(1, blocks):
+#             layers.append(block(self.inplanes, planes, groups=self.groups,
+#                                 base_width=self.base_width, dilation=self.dilation,
+#                                 norm_layer=norm_layer))
+
+#         return nn.Sequential(*layers)
+
+#     def _forward(self, x):
+#         x = self.conv1(x)
+#         x = self.bn1(x)
+#         x = self.relu(x)
+#         x = self.maxpool(x)
+
+#         x = self.layer1(x)
+#         x = self.layer2(x)
+#         x = self.layer3(x)
+#         x = self.layer4(x)
+
+#         x = self.avgpool(x)
+#         x = torch.flatten(x, 1)
+        
+#         x = self.fc(x)
+#         #x = self.fc_u(x)
+#         #x = self.fc_v(x)
+#         return x
+
+#     # Allow for accessing forward method in a inherited class
+#     forward = _forward
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
@@ -2030,8 +2162,8 @@ def _wide_resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = WideResNet(block, layers, **kwargs)
     return model
 
-def _lowrank_wideresnet(arch, block, layers, pretrained, progress, **kwargs):
-    model = LowRankWideResNet(block, layers, **kwargs)
+def _lowrank_wideresnet(arch, rank_factor, block, layers, pretrained, progress, **kwargs):
+    model = LowRankWideResNetConv1x1(block, rank_factor, layers, **kwargs)
     return model
 
 #--------
@@ -2328,11 +2460,13 @@ def wide_resnet101_2(pretrained=False, progress=True, **kwargs):
 #---------- WideResNet ------
 
 def wideresnet18(pretrained=False, progress=True, **kwargs):
+    print("resnet.py: called wideresnet18 function")
     return _wide_resnet('wideresnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
                    **kwargs)
 
-def lowrank_wideresnet18(pretrained=False, progress=True, **kwargs):
-    return _lowrank_resnet('wideresnet18', LowRankBasicBlockConv1x1, [2, 2, 2, 2], pretrained, progress,
+def lowrank_wideresnet18(rank_factor=4, pretrained=False, progress=True, **kwargs):
+    print("resnet.py: called lowrank_wideresnet18 function")
+    return _lowrank_wideresnet('wideresnet18', rank_factor, LowRankBasicBlockConv1x1, [2, 2, 2, 2], pretrained, progress,
                    **kwargs)
 
 # ---------
@@ -2347,7 +2481,7 @@ def count_parameters2(model):
 
 
 if __name__ == "__main__":
-    model = hybrid_resnet50(rank_factor=4)
+    #model = hybrid_resnet50(rank_factor=4)
     #model = hybrid_resnet50_extra_bns(rank_factor=4)
     #model = hybrid_resnet152(rank_factor=4)
     #model = resnet50()
@@ -2359,6 +2493,7 @@ if __name__ == "__main__":
     #model = resnet152()
     #model = lowrank_resnet34_conv1x1(rank_factor=4)
     #model = baseline_resnet18()
+    model = wideresnet18()
     print("### Let's look at the model architecture ... ")
     #simulated_input = torch.randn(2, 3, 32, 32)
     print(model)
