@@ -90,7 +90,7 @@ parser.add_argument('-rf', '--rank-factor', default=4, type=int,
                     metavar='N', help='the rank factor that is going to use in the low rank models')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--model-save-dir', default='/checkpoint', type=str, metavar='PATH',
+parser.add_argument('--model-save-dir', default='./checkpoint', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -754,6 +754,7 @@ def validate(val_loader, model, criterion, args):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+    print("saving to:", filename)
     torch.save(state, filename)
     # torch.save(state, "./checkpoint/imagenet_{}epochs.pth.tar")
     if is_best:
